@@ -1,0 +1,60 @@
+---------------------------------------------------------------------------------------------------------------------------------------
+INSTALL FFMPEG:
+
+sudo su -
+cd /usr/local/bin
+mkdir ffmpeg
+cd ffmpeg
+
+wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-arm64-static.tar.xz
+tar xvf ffmpeg-git-arm64-static.tar.xz
+mv ffmpeg-git-20230620-arm64-static/ffmpeg .
+
+ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
+exit
+---------------------------------------------------------------------------------------------------------------------------------------
+CHANGE VIDEO SIZE:
+
+sudo aws s3 cp s3://video-compression-s3/before.mp4 before.mp4
+
+ffmpeg -i before.mp4 -vf scale=320:240 after2.mp4
+
+sudo aws s3 cp after2.mp4 s3://video-compression-s3/after2.mp4
+
+sssh -i "A4L.pem" ec2-user@ec2-174-129-120-114.compute-1.amazonaws.com
+
+---------------------------------------------------------------------------------------------------------------------------------------
+DECODING BASH SCRIPT
+(Todo add loop, add quality check, add file deletion and detection for duplicates!)
+
+#!/bin/bash
+
+bucket_name="s3://video-compression-s3/"
+queue_url="https://sqs.us-east-1.amazonaws.com/712526075904/VideoUploadSQS"
+# aws sqs receive-message --queue-url https://sqs.us-east-1.amazonaws.com/712526075904/VideoUploadSQS > message.json
+
+json=`aws sqs receive-message --queue-url "${queue_url}"`
+json=`sed 's/\\\"/\"/g' <<< $json`
+json=`sed 's/\"{/{/g' <<< $json`
+json=`sed 's/}\"/}/g' <<< $json`
+echo "$json"
+
+first_message=`jq '.Messages[0]' <<< "$json"`
+
+receipt=`jq '.ReceiptHandle' <<< "$first_message"`
+receipt=`sed 's/\"//g' <<< $receipt`
+
+aws sqs delete-message --queue-url https://sqs.us-east-2.amazonaws.com/712526075904/VideoUploadSQS --receipt-handle "${receipt}"
+
+object_key=`jq '.Body.Records[0].s3.object.key' <<< "$first_message"`
+object_key=`sed 's/\"//g' <<< $object_key`
+object_key_no_path=`sed 's|.*/||' <<< $object_key`
+
+aws s3 cp "${bucket_name}${object_key}" "${object_key_no_path}"
+
+ffmpeg -i before.mp4 -vf scale=320:240 "${object_key_no_path}_lq.mp4"
+
+new_path="${bucket_name}${object_key_no_path}"
+aws s3 cp "${object_key_no_path}_lq.mp4" "${new_path}/lq"
+aws s3 cp "${object_key_no_path}" "${new_path}/sq"
+aws s3 rm "${bucket_name}${object_key}"
