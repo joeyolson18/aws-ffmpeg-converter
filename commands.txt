@@ -13,6 +13,9 @@ mv ffmpeg-git-20230620-arm64-static/ffmpeg .
 ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
 exit
 ---------------------------------------------------------------------------------------------------------------------------------------
+sudo yum install git
+git clone 
+---------------------------------------------------------------------------------------------------------------------------------------
 CHANGE VIDEO SIZE:
 
 sudo aws s3 cp s3://video-compression-s3/before.mp4 before.mp4

@@ -1,69 +1,213 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Metadata:
-  License: Apache-2.0
-Description: 'AWS CloudFormation Sample Template EC2InstanceWithSecurityGroupSample:
-  Create an Amazon EC2 instance running the Amazon Linux AMI. The AMI is chosen based
-  on the region in which the stack is run. This example creates an EC2 security group
-  for the instance to give you SSH access. **WARNING** This template creates an Amazon
-  EC2 instance. You will be billed for the AWS resources used if you create a stack
-  from this template.'
-Parameters:
-  KeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.
-  InstanceType:
-    Description: WebServer EC2 instance type
-    Type: String
-    Default: t3.small
-    AllowedValues: [t2.nano, t2.micro, t2.small, t2.medium, t2.large, t2.xlarge, t2.2xlarge,
-      t3.nano, t3.micro, t3.small, t3.medium, t3.large, t3.xlarge, t3.2xlarge,
-      m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge, m4.10xlarge,
-      m5.large, m5.xlarge, m5.2xlarge, m5.4xlarge,
-      c5.large, c5.xlarge, c5.2xlarge, c5.4xlarge, c5.9xlarge,
-      g3.8xlarge,
-      r5.large, r5.xlarge, r5.2xlarge, r5.4xlarge, r3.12xlarge,
-      i3.xlarge, i3.2xlarge, i3.4xlarge, i3.8xlarge,
-      d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge]
-    ConstraintDescription: must be a valid EC2 instance type.
-  SSHLocation:
-    Description: The IP address range that can be used to SSH to the EC2 instances
-    Type: String
-    MinLength: 9
-    MaxLength: 18
-    Default: 0.0.0.0/0
-    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
-    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
-  LatestAmiId:
-    Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
-    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 
+  "FFMPEG Decoder CloudFormation Template
+  Installs:
+    EC2 instance with FFMPEG and a script to run it on a loop
+    S3 Bucket to add videos
+    SQS Queue to notify the EC2 instance of an upload
+    Role for EC2 bucket and S3 access"
+  
+Mappings:
+  RegionMap:
+    ap-northeast-1:
+      ALinuxArm: ami-002eb0cce502117b2
+    ap-northeast-2:
+      ALinuxArm: ami-013e35012cb169cef
+    ap-northeast-3:
+      ALinuxArm: ami-03b8bb56070c11374
+    ap-south-1:
+      ALinuxArm: ami-0f203c26f765cfb32
+    ap-southeast-1:
+      ALinuxArm: ami-0f064a4c9f3e6c504
+    ap-southeast-2:
+      ALinuxArm: ami-037cd799fbb0578cf
+    ca-central-1:
+      ALinuxArm: ami-0d955517b1485ed00
+    eu-central-1:
+      ALinuxArm: ami-0d03a2d1b22041c13
+    eu-north-1:
+      ALinuxArm: ami-03da1616c1fc9d795
+    eu-west-1:
+      ALinuxArm: ami-0fa60ab544ecd97e0
+    eu-west-2:
+      ALinuxArm: ami-0cc7e32fa3b6695a5
+    eu-west-3:
+      ALinuxArm: ami-0e7dca26aea79122d
+    sa-east-1:
+      ALinuxArm: ami-0461cf0c292037658
+    us-east-1:
+      ALinuxArm: ami-0006abfd85caddf82
+    us-east-2:
+      ALinuxArm: ami-0e31d4ddf8c30fd2a
+    us-west-1:
+      ALinuxArm: ami-02df98ef10c8d0aa9
+    us-west-2:
+      ALinuxArm: ami-00b8975bc3de669d2
+
 Resources:
-  EC2Instance:
+  FFMPEGInstance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: !Ref 'InstanceType'
-      SecurityGroups: [!Ref 'InstanceSecurityGroup']
-      KeyName: !Ref 'KeyName'
-      ImageId: !Ref 'LatestAmiId'
-  InstanceSecurityGroup:
+      Tags:
+        - Key: Name
+          Value: FFMPEG-Decoder-Instance
+      ImageId: !FindInMap [ RegionMap, !Ref AWS::Region, ALinuxArm ]
+      InstanceType: t4g.nano
+      IamInstanceProfile: !Ref FFMPEGProfile
+      KeyName: A4L
+      SecurityGroupIds: [ !Ref SSHInboundSG ]
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          
+          sudo su
+          cd /usr/local/bin
+          mkdir ffmpeg
+          cd ffmpeg
+
+          wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-arm64-static.tar.xz
+          tar xvf ffmpeg-git-arm64-static.tar.xz
+          
+          for folder in /usr/local/bin/ffmpeg/*/
+          do
+            dir=$folder
+          done
+          mv -v "$dir"ffmpeg /usr/local/bin/ffmpeg/ffmpeg
+
+          ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
+          exit
+
+          cd ~
+          wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/decode-v1.bash
+          bash decode-v1.bash
+  
+  FFMPEGProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [ !Ref EC2DecoderRole ]
+  EC2DecoderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ec2-decoder-role
+      AssumeRolePolicyDocument: {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": [ "ec2.amazonaws.com" ]
+                },
+                "Action": [ "sts:AssumeRole" ]
+            }
+        ]
+    }
+  EC2DecoderPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ec2-get-s3-video-uploads-policy
+      Roles: [ !Ref EC2DecoderRole ]
+      PolicyDocument: {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "GetObject",
+                "Effect": "Allow",
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::video-compression-s3/uploads/*"
+            },
+            {
+                "Sid": "PutObject",
+                "Effect": "Allow",
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::video-compression-s3/*"
+            }
+        ]
+    }
+
+  SSHInboundSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Enable SSH access via port 22
+      GroupName: SSHInboundSG
+      GroupDescription: Allows inbound SSH access to instance
       SecurityGroupIngress:
-      - IpProtocol: tcp
+        IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: !Ref 'SSHLocation'
-Outputs:
-  InstanceId:
-    Description: InstanceId of the newly created EC2 instance
-    Value: !Ref 'EC2Instance'
-  AZ:
-    Description: Availability Zone of the newly created EC2 instance
-    Value: !GetAtt [EC2Instance, AvailabilityZone]
-  PublicDNS:
-    Description: Public DNSName of the newly created EC2 instance
-    Value: !GetAtt [EC2Instance, PublicDnsName]
-  PublicIP:
-    Description: Public IP address of the newly created EC2 instance
-    Value: !GetAtt [EC2Instance, PublicIp]
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+      VpcId: vpc-0349cd1a5129f86c2
+
+  VideoQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: VideoUploadQueue
+      VisibilityTimeout: 30
+      MaximumMessageSize: 4096
+  VideoQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      # TODO Change the account IDs and other resources to variables
+      Queues: [ !Ref VideoQueue ]
+      PolicyDocument: {
+        "Version": "2012-10-17",
+        "Id": "example-ID",
+        "Statement": [
+          {
+            "Sid": "example-statement-ID",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "s3.amazonaws.com"
+            },
+            "Action": "SQS:SendMessage",
+            "Resource": !GetAtt VideoQueue.Arn,
+            "Condition": {
+              "StringEquals": {
+                "aws:SourceAccount": "712526075904"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:s3:::video-compression-s3"
+              }
+            }
+          },
+          {
+            "Sid": "__owner_statement",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::712526075904:root"
+            },
+            "Action": "SQS:*",
+            "Resource": !GetAtt VideoQueue.Arn
+          },
+          {
+            "Sid": "__sender_statement",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::712526075904:root"
+            },
+            "Action": "SQS:SendMessage",
+            "Resource": !GetAtt VideoQueue.Arn
+          },
+          {
+            "Sid": "__receiver_statement",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": [
+                "arn:aws:iam::712526075904:root",
+                !GetAtt EC2DecoderRole.Arn
+              ]
+            },
+            "Action": [
+              "SQS:ChangeMessageVisibility",
+              "SQS:DeleteMessage",
+              "SQS:ReceiveMessage"
+            ],
+            "Resource": !GetAtt VideoQueue.Arn
+          }
+        ]
+      }
+
+  
