@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: S3 Queue Notifications Test
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Stack Variables
+        Parameters:
+          - Environment
+      - Label:
+          default: Constants
+        Parameters:
+          - AppName
+
+Parameters:
+  AppName:
+    Type: String
+    Default: queue-notification
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - test
+      - prod
+    Default: dev
+
+Resources:
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    DependsOn:
+      - PriorityQueue
+      - StandardQueue
+      - QueuePolicy
+    Properties:
+      BucketName: !Join [ "-", [ !Ref AppName, !Ref Environment ] ]
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Queue: !GetAtt PriorityQueue.Arn
+          - Event: s3:ObjectRemoved:*
+            Queue: !GetAtt StandardQueue.Arn
+
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    DependsOn:
+      - PriorityQueue
+      - StandardQueue
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+              - SQS:SendMessage
+            # Target a wildcard resource name based on the same format as QueueName
+            Resource: !Join [ "", [ "arn:aws:sqs:::", !Join [ "-", [ !Ref AppName, !Ref Environment ] ], "*" ] ]
+            Condition:
+              ArnLike:
+                # Static BucketName used to avoid circular dependency with S3 bucket
+                aws:SourceArn: !Join [ "", ["arn:aws:s3:*:*:", !Join [ "-", [ !Ref AppName, !Ref Environment ] ] ] ]
+      Queues:
+        - !Ref PriorityQueue
+        - !Ref StandardQueue
+
+  PriorityQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      MaximumMessageSize: 262144
+      MessageRetentionPeriod: 864000
+      QueueName: !Join [ "-", [ !Ref AppName, !Ref Environment, priority ] ]
+      ReceiveMessageWaitTimeSeconds: 0
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt FailureQueue.Arn
+        maxReceiveCount: 10
+      VisibilityTimeout: 90
+
+  StandardQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      MaximumMessageSize: 262144
+      MessageRetentionPeriod: 864000
+      QueueName: !Join [ "-", [ !Ref AppName, !Ref Environment, standard ] ]
+      ReceiveMessageWaitTimeSeconds: 0
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt FailureQueue.Arn
+        maxReceiveCount: 10
+      VisibilityTimeout: 90
+
+  FailureQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      MaximumMessageSize: 262144
+      MessageRetentionPeriod: 864000
+      QueueName: !Join [ "-", [ !Ref AppName, !Ref Environment, "failure" ] ]
+      ReceiveMessageWaitTimeSeconds: 0
+      VisibilityTimeout: 500

@@ -26,17 +26,17 @@ do
                 object_key=`sed 's/\"//g' <<< $object_key`
                 object_key_no_path=`sed 's|.*/||' <<< $object_key`
 
-                aws s3 cp "${bucket_name}${object_key}" "${object_key_no_path}"
+                aws s3 cp "${bucket_name}${object_key}" ~/sq.mp4
 
-                ffmpeg -i before.mp4 -vf scale=320:240 "${object_key_no_path}_lq.mp4"
+                ffmpeg -i ~/sq.mp4 -vf scale=320:240 ~/lq.mp4
 
                 new_path="${bucket_name}${object_key_no_path}"
-                aws s3 cp "${object_key_no_path}_lq.mp4" "${new_path}/lq"
-                aws s3 cp "${object_key_no_path}" "${new_path}/sq"
+                aws s3 cp ~/lq.mp4 "${new_path}/lq.mp4"
+                aws s3 cp ~/sq.mp4 "${new_path}/sq.mp4"
                 aws s3 rm "${bucket_name}${object_key}"
 
-                rm "${object_key_no_path}"
-                rm "${object_key_no_path}_lq.mp4"
+                rm ~/lq.mp4
+                rm ~/sq.mp4
         fi
 
         sleep 10
