@@ -1,11 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: 
-  "FFMPEG Decoder CloudFormation Template
-  Installs:
-    EC2 instance with FFMPEG and a script to run it on a loop
-    S3 Bucket to add videos
-    SQS Queue to notify the EC2 instance of an upload
-    Role for EC2 bucket and S3 access"
+Description: FFMPEG Decoder
   
 Mappings:
   RegionMap:
@@ -57,30 +51,37 @@ Resources:
       KeyName: A4L
       SecurityGroupIds: [ !Ref SSHInboundSG ]
       UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash -xe
+        Fn::Base64: !Sub {
+          Fn::!Join: [
+            "",
+            [
+              #!/bin/bash -xe
           
-          sudo su
-          cd /usr/local/bin
-          mkdir ffmpeg
-          cd ffmpeg
+              sudo su
+              cd /usr/local/bin
+              mkdir ffmpeg
+              cd ffmpeg
 
-          wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-arm64-static.tar.xz
-          tar xvf ffmpeg-git-arm64-static.tar.xz
+              wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-arm64-static.tar.xz
+              tar xvf ffmpeg-git-arm64-static.tar.xz
+              
+              for folder in /usr/local/bin/ffmpeg/*/
+              do
+                dir=$folder
+              done
+              mv -v "$dir"ffmpeg /usr/local/bin/ffmpeg/ffmpeg
+
+              ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
+              exit     
+
+              cd ~
+              wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/decode-v1.bash
+              sed -i 's/<queue-name>/'", { !Ref VideoQueue }, "/g' decode-v1.bash
+              bash decode-v1.bash"
+            ]
+          ]
+        }
           
-          for folder in /usr/local/bin/ffmpeg/*/
-          do
-            dir=$folder
-          done
-          mv -v "$dir"ffmpeg /usr/local/bin/ffmpeg/ffmpeg
-
-          ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
-          exit
-
-          cd ~
-          wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/decode-v1.bash
-          bash decode-v1.bash
-  
   FFMPEGProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -139,6 +140,7 @@ Resources:
         FromPort: 0
         ToPort: 65535
         CidrIp: 0.0.0.0/0
+      # TODO Change to default VPC !Ref
       VpcId: vpc-0349cd1a5129f86c2
 
   VideoQueue:

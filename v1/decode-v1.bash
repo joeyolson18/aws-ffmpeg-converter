@@ -5,7 +5,7 @@ do
         echo "Polling Queue"
 
         bucket_name="s3://video-compression-s3/"
-        queue_url="https://sqs.us-east-1.amazonaws.com/712526075904/VideoUploadSQS"
+        queue_url="<queue-name>"
 
         json=`aws sqs receive-message --queue-url "${queue_url}"`
         if [ "$json" ]
@@ -41,3 +41,4 @@ do
 
         sleep 10
 done
+
