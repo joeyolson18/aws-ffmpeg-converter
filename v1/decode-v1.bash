@@ -4,7 +4,7 @@ while true
 do
         echo "Polling Queue"
 
-        bucket_name="s3://video-compression-s3/"
+        bucket_name="<bucket-name>"
         queue_url="<queue-name>"
 
         json=`aws sqs receive-message --queue-url "${queue_url}"`
