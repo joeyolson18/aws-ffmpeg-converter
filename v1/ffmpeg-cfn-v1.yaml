@@ -115,19 +115,19 @@ Resources:
                 "Sid": "GetObject",
                 "Effect": "Allow",
                 "Action": "s3:GetObject",
-                "Resource": "arn:aws:s3:::video-compression-s3/uploads/*"
+                "Resource": !Join [ "", ["arn:aws:s3:::", !Ref VideoUploadBucketName, "/uploads/*"] ]
             },
             {
                 "Sid": "PutObject",
                 "Effect": "Allow",
                 "Action": "s3:PutObject",
-                "Resource": "arn:aws:s3:::video-compression-s3/*"
+                "Resource": !Join [ "", ["arn:aws:s3:::", !Ref VideoUploadBucketName, "/*"] ]
             },
             {
                 "Sid": "DeleteObject",
                 "Effect": "Allow",
                 "Action": "s3:DeleteObject",
-                "Resource": "arn:aws:s3:::video-compression-s3/uploads/*"
+                "Resource": !Join [ "", ["arn:aws:s3:::", !Ref VideoUploadBucketName, "/uploads/*"] ]
             }
         ]
     }
