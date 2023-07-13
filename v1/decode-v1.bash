@@ -20,7 +20,7 @@ do
                 receipt=`jq '.ReceiptHandle' <<< "$first_message"`
                 receipt=`sed 's/\"//g' <<< $receipt`
 
-                aws sqs delete-message --queue-url https://sqs.us-east-2.amazonaws.com/712526075904/VideoUploadSQS --receipt-handle "${receipt}"
+                aws sqs delete-message --queue-url "$queue_url" --receipt-handle "${receipt}"
 
                 object_key=`jq '.Body.Records[0].s3.object.key' <<< "$first_message"`
                 object_key=`sed 's/\"//g' <<< $object_key`

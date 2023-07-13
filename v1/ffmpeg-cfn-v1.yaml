@@ -1,6 +1,10 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: FFMPEG Decoder
   
+Parameters:
+  VideoUploadBucketName:
+    Type: String
+
 Mappings:
   RegionMap:
     ap-northeast-1:
@@ -51,36 +55,33 @@ Resources:
       KeyName: A4L
       SecurityGroupIds: [ !Ref SSHInboundSG ]
       UserData:
-        Fn::Base64: !Sub {
-          Fn::!Join: [
-            "",
-            [
-              #!/bin/bash -xe
-          
-              sudo su
-              cd /usr/local/bin
-              mkdir ffmpeg
-              cd ffmpeg
+        Fn::Base64: !Sub
+          - "#!/bin/bash -xe
+        
+            cd /usr/local/bin \n
+            sudo mkdir ffmpeg \n
+            cd ffmpeg
 
-              wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-arm64-static.tar.xz
-              tar xvf ffmpeg-git-arm64-static.tar.xz
-              
-              for folder in /usr/local/bin/ffmpeg/*/
-              do
-                dir=$folder
-              done
-              mv -v "$dir"ffmpeg /usr/local/bin/ffmpeg/ffmpeg
+            sudo wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-arm64-static.tar.xz \n
+            sudo tar xvf ffmpeg-git-arm64-static.tar.xz
+            
+            for folder in /usr/local/bin/ffmpeg/*/ \n
+            do \n
+              dir=$folder \n
+            done \n
+            mv -v \"$dir\"ffmpeg /usr/local/bin/ffmpeg/ffmpeg \n
+            ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
 
-              ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
-              exit     
+            cd ~ \n
+            wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/decode-v1.bash \n
+            sed -i 's|<queue-name>|${VideoQueue}|' decode-v1.bash \n
+            sed -i 's|<bucket-name>|${VideoUploadBucket}|' decode-v1.bash \n
+            bash decode-v1.bash
+            "
 
-              cd ~
-              wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/decode-v1.bash
-              sed -i 's/<queue-name>/'", { !Ref VideoQueue }, "/g' decode-v1.bash
-              bash decode-v1.bash"
-            ]
-          ]
-        }
+          - VideoQueue: !Ref VideoQueue
+          - VideoUploadBucket: !Join [ "", ["arn:aws:s3:::", !Ref VideoUploadBucketName ] ]
+   
           
   FFMPEGProfile:
     Type: AWS::IAM::InstanceProfile
@@ -143,6 +144,25 @@ Resources:
       # TODO Change to default VPC !Ref
       VpcId: vpc-0349cd1a5129f86c2
 
+  VideoUploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref VideoUploadBucketName
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Queue: !GetAtt VideoQueue.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/
+                  - Name: suffix
+                    Value: .mp4
+    DependsOn:
+      - VideoQueue
+      - VideoQueuePolicy 
+
   VideoQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -159,7 +179,7 @@ Resources:
         "Id": "example-ID",
         "Statement": [
           {
-            "Sid": "example-statement-ID",
+            "Sid": "_s3_send_message",
             "Effect": "Allow",
             "Principal": {
               "Service": "s3.amazonaws.com"
@@ -168,10 +188,10 @@ Resources:
             "Resource": !GetAtt VideoQueue.Arn,
             "Condition": {
               "StringEquals": {
-                "aws:SourceAccount": "712526075904"
+                "aws:SourceAccount": !Ref AWS::AccountId
               },
               "ArnLike": {
-                "aws:SourceArn": "arn:aws:s3:::video-compression-s3"
+                "aws:SourceArn": !Join [ "", ["arn:aws:s3:::", !Ref VideoUploadBucketName ] ]
               }
             }
           },
@@ -211,5 +231,5 @@ Resources:
           }
         ]
       }
-
-  
+    DependsOn:
+      - VideoQueue
