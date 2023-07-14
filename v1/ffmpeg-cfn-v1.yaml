@@ -73,10 +73,10 @@ Resources:
             ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
 
             cd ~ \n
-            wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/decode-v1.bash \n
-            sed -i 's|<queue-name>|${VideoQueue}|' decode-v1.bash \n
-            sed -i 's|<bucket-name>|${VideoUploadBucket}|' decode-v1.bash \n
-            bash decode-v1.bash
+            wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/convert-v1.bash \n
+            sed -i 's|<queue-name>|${VideoQueue}|' convert-v1.bash \n
+            sed -i 's|<bucket-name>|${VideoUploadBucket}|' convert-v1.bash \n
+            bash convert-v1.bash
             "
 
           - VideoQueue: !Ref VideoQueue
