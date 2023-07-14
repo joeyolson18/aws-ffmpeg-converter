@@ -8,11 +8,15 @@ I will upload each stage of the project as its own **version** section. This REA
 ## Version 1
 ![Diagram](https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-converter/main/images/video-converter-v1.svg)
 
-Version 1 is the minimum viable product. To get started, download the yaml file `v1/ffmpeg-cfn-v1.yaml` from this repository. Then, upload it to your AWS environment through CloudFormation or the AWS CLI. Two parameters must be entered: the _Default VPC ID_ and a _Bucket Name_. The Default VPC ID can be found by going to `VPC -> Your VPCs` then copying the VPC ID of the option with _Default VPC_ set to _Yes_. The bucket Name is decided by the user, but must be globally unique to all AWS accounts. 
+Version 1 is the minimum viable product. To get started, download the yaml file `v1/ffmpeg-cfn-v1.yaml` from this repository. Then, upload it to your AWS environment through CloudFormation or the AWS CLI. Two parameters must be entered: the _Default VPC ID_ and a _Bucket Name_. The _Default VPC ID_ can be found by going to "VPC" then "Your VPCs" in the AWS interface, then copying the VPC ID of the VPC with _Default VPC_ set to _Yes_. The _Bucket Name_ is decided by the user, but must be globally unique to all AWS accounts. 
 
-For the system to work, a folder `uploads/` must be manually created by the user in the bucket made by the template. This bucket will have the name of which the user configured. Uploading an `.mp4` to this folder triggers an Event Notification, and a message is published to SQS. This SQS message is polled (read) by a bash program that continually runs on an EC2 instance.
+For the system to work, a folder `uploads/` must be manually created by the user in the bucket made by the template. Uploading an `.mp4` to this folder triggers an Event Notification, and a message is published to SQS. This SQS message is polled (read) by a bash program that continually runs on an EC2 instance.
 
-The bash program is pulled from this repository: `v1/convert-v1.bash`. Every 10 seconds, it polls the SQS queue for information about the `uploads/` folder. If a new message is detected, then the instance will download the `.mp4` file locally and convert it to 240p using FFMPEG. Then, the instance will upload both the original and low-quality versions to a new folder. This folder will share a name with that of the uploaded file. Finally, the original file will be deleted in the `uploads/` folder.
+The bash script is pulled from `v1/convert-v1.bash` in this repository and run on the EC2 instance. Every 10 seconds, the script polls the SQS queue for information about the `uploads/` folder. If a new message is detected, then the instance will download the `.mp4` file from S3 and convert it to 240p using FFMPEG. Then, the instance will upload both the original and low-quality versions to a new folder. This folder will share a name with that of the uploaded file. Finally, the original file will be deleted in the `uploads/` folder.
+
+Solarized dark             |  Solarized Ocean
+:-------------------------:|:-------------------------:
+![](https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-converter/main/images/video-upload.png)  |  ![](https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-converter/main/images/video-conversion.png)
 
 ### Challenges
 ***Bucket Notifications:*** 
