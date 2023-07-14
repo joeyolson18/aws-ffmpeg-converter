@@ -3,25 +3,31 @@
 ## Introduction
 This is my first independent AWS CloudFormation / IaC project. In full working form, it will launch a web page to upload videos, convert those videos to configured qualities, then present them back to the user on that same web page.
 
-I will upload each stage of the project as its own verson. This readme will provide descriptions of the infrastructure of the specific versions, each one building on the last. Once I complete the project, I will provide a full, ground-up description of the final version so that readers do not have to go through all previous versions.
+I will upload each stage of the project as its own **version** section. This README will provide descriptions of each version and its infrastructure, each building on top of the last. Additionally, there will be a **challenges** section for each version, documenting problems that had to be overcome in the making of this project. This can safely be skipped if you're just attempting to understand the infrastructure. Once I complete the project, I will provide a full, ground-up description of the final version so that readers do not have to go through all previous versions.
 
 ## Version 1
-Version 1 s
 ![Diagram](https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-converter/main/images/video-converter-v1.svg)
+
+Version 1 is the minimum viable product. To get started, download the yaml file `v1/ffmpeg-cfn-v1.yaml` from this repository. Then, upload it to your AWS environment through CloudFormation or the AWS CLI. Two parameters must be entered: the _Default VPC ID_ and a _Bucket Name_. The Default VPC ID can be found by going to `VPC -> Your VPCs` then copying the VPC ID of the option with _Default VPC_ set to _Yes_. The bucket Name is decided by the user, but must be globally unique to all AWS accounts. 
+
+For the system to work, a folder `uploads/` must be manually created by the user in the bucket made by the template. This bucket will have the name of which the user configured. Uploading an `.mp4` to this folder triggers an Event Notification, and a message is published to SQS. This SQS message is polled (read) by a bash program that continually runs on an EC2 instance.
+
+The bash program is pulled from this repository: `v1/convert-v1.bash`. Every 10 seconds, it polls the SQS queue for information about the `uploads/` folder. If a new message is detected, then the instance will download the `.mp4` file locally and convert it to 240p using FFMPEG. Then, the instance will upload both the original and low-quality versions to a new folder. This folder will share a name with that of the uploaded file. Finally, the original file will be deleted in the `uploads/` folder.
+
 ### Challenges
-**Queue / Bucket synchronization:**
+***Bucket Notifications:*** 
+To notify the EC2 insta
 
-**!Sub with EC2 UserData:**
-You can input commands to run on an EC2 instance startup using UserData. While very useful, debugging can be difficult if you do not know where to look. [This](https://stackoverflow.com/questions/15904095/how-to-check-whether-my-user-data-passing-to-ec2-instance-is-working) Stack Overflow article helped tremendously. Firstly, all setup processes—including UserData scripts—are written to `/var/log/cloud-init-output.log`. You can view error logs if your scripts are running improperly.
+***!Sub with EC2 UserData:*** 
+You can input commands to run on an EC2 instance startup using UserData. [This Stack Overflow article](https://stackoverflow.com/questions/15904095/how-to-check-whether-my-user-data-passing-to-ec2-instance-is-working) contains the necessary filepaths to properly debug UserData scripts, as it can be tricky without the proper tools. 
 
-Sometimes, UserData will return this error:
+Firstly, all setup processes—including UserData scripts—are written to `/var/log/cloud-init-output.log`. You can view error logs if your scripts are running improperly. This is a fantastic resource if your scripts are running, but sometimes UserData fails to run entirely. The following error message will be returned in that case:
 ```
-/var/lib/cloud/instance/scripts/part-001: line 2: cd: too many arguments
 <TIMESTAMP> - cc_scripts_user.py[WARNING]: Failed to run module scripts-user (scripts in /var/lib/cloud/instance/scripts)
 <TIMESTAMP> - util.py[WARNING]: Running module scripts-user (<module 'cloudinit.config.cc_scripts_user' from '/usr/lib/python3.9/site-packages/cloudinit/config/cc_scripts_user.py'>) failed
 ```
- This was the case for me when I first attempted to use the `!Sub` or `!Join` CloudFormation functions to input variables such as the S3 bucket name. If you scroll down further in the above article, you will see how to return a text file of your UserData:
-```
-sudo cat /var/lib/cloud/instances/$INSTANCE_ID/user-data.txt
-```
-In my case, all of my commands were on the same line, so I had line breaks to my UserData file.
+The UserData scripts are simply not running. The article solves our problems here as well, as the commands are run from the text file: `sudo cat /var/lib/cloud/instances/<INSTANCE_ID>/user-data.txt`. If you open this, you can see what commands the instance is attempting to run before failing.
+
+This error returned when I first attempted to use the `!Sub` or `!Join` CloudFormation functions in my UserData string field. After viewing the text file, I noticed that all of the commands were written on the same line, which was easily remedied with newline `\n` characters.
+
+

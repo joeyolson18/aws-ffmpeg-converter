@@ -4,6 +4,8 @@ Description: FFMPEG Decoder
 Parameters:
   VideoUploadBucketName:
     Type: String
+  DefaultVPCID:
+    Type: String
 
 Mappings:
   RegionMap:
@@ -52,25 +54,24 @@ Resources:
       ImageId: !FindInMap [ RegionMap, !Ref AWS::Region, ALinuxArm ]
       InstanceType: t4g.nano
       IamInstanceProfile: !Ref FFMPEGProfile
-      KeyName: A4L
       SecurityGroupIds: [ !Ref SSHInboundSG ]
       UserData:
         Fn::Base64: !Sub
-          - "#!/bin/bash -xe
+          - "#!/bin/bash -xe \n
         
             cd /usr/local/bin \n
             sudo mkdir ffmpeg \n
-            cd ffmpeg
+            cd ffmpeg \n
 
             sudo wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-arm64-static.tar.xz \n
-            sudo tar xvf ffmpeg-git-arm64-static.tar.xz
+            sudo tar xvf ffmpeg-git-arm64-static.tar.xz \n
             
             for folder in /usr/local/bin/ffmpeg/*/ \n
             do \n
               dir=$folder \n
             done \n
             mv -v \"$dir\"ffmpeg /usr/local/bin/ffmpeg/ffmpeg \n
-            ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg
+            ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg \n
 
             cd ~ \n
             wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/convert-v1.bash \n
@@ -148,7 +149,7 @@ Resources:
         ToPort: 65535
         CidrIp: 0.0.0.0/0
       # TODO Change to default VPC !Ref
-      VpcId: vpc-0349cd1a5129f86c2
+      VpcId: !Ref DefaultVPCID
 
   VideoUploadBucket:
     Type: AWS::S3::Bucket
@@ -205,7 +206,7 @@ Resources:
             "Sid": "__owner_statement",
             "Effect": "Allow",
             "Principal": {
-              "AWS": "arn:aws:iam::712526075904:root"
+              "AWS": !Join [ "", [ "arn:aws:iam::", !Ref AWS::AccountId, ":root" ] ]
             },
             "Action": "SQS:*",
             "Resource": !GetAtt VideoQueue.Arn
@@ -214,7 +215,7 @@ Resources:
             "Sid": "__sender_statement",
             "Effect": "Allow",
             "Principal": {
-              "AWS": "arn:aws:iam::712526075904:root"
+              "AWS": !Join [ "", [ "arn:aws:iam::", !Ref AWS::AccountId, ":root" ] ]
             },
             "Action": "SQS:SendMessage",
             "Resource": !GetAtt VideoQueue.Arn
@@ -224,8 +225,8 @@ Resources:
             "Effect": "Allow",
             "Principal": {
               "AWS": [
-                "arn:aws:iam::712526075904:root",
-                !GetAtt EC2DecoderRole.Arn
+                !GetAtt EC2DecoderRole.Arn,
+                !Join [ "", [ "arn:aws:iam::", !Ref AWS::AccountId, ":root" ] ]
               ]
             },
             "Action": [
