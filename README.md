@@ -14,7 +14,7 @@ For the system to work, a folder `uploads/` must be manually created by the user
 
 The bash script is pulled from `v1/convert-v1.bash` in this repository and run on the EC2 instance. Every 10 seconds, the script polls the SQS queue for information about the `uploads/` folder. If a new message is detected, then the instance will download the `.mp4` file from S3 and convert it to 240p using FFMPEG. Then, the instance will upload both the original and low-quality versions to a new folder. This folder will share a name with that of the uploaded file. Finally, the original file will be deleted in the `uploads/` folder.
 
-sample-5s.mp4 uploaded to uploads/ |  lq.mp4 and hq.mp4 pushed to sample-5s.mp4/
+`sample-5s.mp4` uploaded to `uploads/` |  `lq.mp4` and `hq.mp4` pushed to `sample-5s.mp4/`
 :-------------------------:|:-------------------------:
 ![](https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-converter/main/images/video-upload.png)  |  ![](https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-converter/main/images/video-conversion.png)
 
