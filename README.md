@@ -7,4 +7,4 @@ I will upload each stage of the project as its own verson. This readme will prov
 
 ## Versions
 ### Version 1
-![Diagram](https://github.com/joeyolson18/aws-ffmpeg-converter/images/video-converter-v1.svg)
+![Diagram](https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-converter/main/images/video-converter-v1.svg)
