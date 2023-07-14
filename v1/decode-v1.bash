@@ -38,7 +38,6 @@ do
         rm ~/lq.mp4
         rm ~/sq.mp4
     fi
-
         sleep 10
 done
 
