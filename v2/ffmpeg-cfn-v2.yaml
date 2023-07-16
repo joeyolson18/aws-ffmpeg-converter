@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: FFMPEG Converter
+Description: FFMPEG Decoder
   
 Parameters:
   VideoUploadBucketName:
@@ -50,7 +50,7 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: FFMPEG-Converter-Instance
+          Value: FFMPEG-Decoder-Instance
       ImageId: !FindInMap [ RegionMap, !Ref AWS::Region, ALinuxArm ]
       InstanceType: t4g.nano
       IamInstanceProfile: !Ref FFMPEGProfile
@@ -74,7 +74,7 @@ Resources:
             ln -s /usr/local/bin/ffmpeg/ffmpeg /usr/bin/ffmpeg \n
 
             cd ~ \n
-            wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-converter/main/v1/convert-v1.bash \n
+            wget https://raw.githubusercontent.com/joeyolson18/aws-ffmpeg-decoder/main/v1/convert-v1.bash \n
             sed -i 's|<queue-name>|${VideoQueue}|' convert-v1.bash \n
             sed -i 's|<bucket-name>|${VideoUploadBucket}|' convert-v1.bash \n
             bash convert-v1.bash
@@ -87,11 +87,11 @@ Resources:
   FFMPEGProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      Roles: [ !Ref EC2ConverterRole ]
-  EC2ConverterRole:
+      Roles: [ !Ref EC2DecoderRole ]
+  EC2DecoderRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: ec2-converter-role
+      RoleName: ec2-decoder-role
       AssumeRolePolicyDocument: {
         "Version": "2012-10-17",
         "Statement": [
@@ -104,11 +104,11 @@ Resources:
             }
         ]
     }
-  EC2ConverterPolicy:
+  EC2DecoderPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: ec2-get-s3-video-uploads-policy
-      Roles: [ !Ref EC2ConverterRole ]
+      Roles: [ !Ref EC2DecoderRole ]
       PolicyDocument: {
         "Version": "2012-10-17",
         "Statement": [
@@ -225,7 +225,7 @@ Resources:
             "Effect": "Allow",
             "Principal": {
               "AWS": [
-                !GetAtt EC2ConverterRole.Arn,
+                !GetAtt EC2DecoderRole.Arn,
                 !Join [ "", [ "arn:aws:iam::", !Ref AWS::AccountId, ":root" ] ]
               ]
             },
